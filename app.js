@@ -20,11 +20,11 @@
     sectionLabels: ['Ongoing', 'Movie', 'OVA', 'Finished'],
     premiumLabel: 'Premium',
     ranks: [
-      { name: 'Free', color: '#888', minMonths: 0 },
-      { name: 'Bronze', color: '#cd7f32', minMonths: 1 },
-      { name: 'Silver', color: '#c0c0c0', minMonths: 3 },
-      { name: 'Gold', color: '#ffd700', minMonths: 6 },
-      { name: 'Diamond', color: '#b9f2ff', minMonths: 12 },
+      { name: 'Free', color: '#888', minMonths: 0, icon: '👤' },
+      { name: 'Bronze', color: '#cd7f32', minMonths: 1, icon: '🥉' },
+      { name: 'Silver', color: '#c0c0c0', minMonths: 3, icon: '🥈' },
+      { name: 'Gold', color: '#ffd700', minMonths: 6, icon: '🥇' },
+      { name: 'Diamond', color: '#b9f2ff', minMonths: 12, icon: '💎' },
     ],
     plans: [
       { id: '1m', label: '1 Month', months: 1, price: '$4.99' },
@@ -600,7 +600,7 @@
 
       ${auth.user && subData.active && html`
         <div class="sub-current">
-          <span class="rank-badge" style=${'background:'+subData.rank.color}>${subData.rank.name}</span>
+          <span class="rank-badge" style=${'background:'+subData.rank.color}>${subData.rank.icon} ${subData.rank.name}</span>
           Active until ${formatDate(new Date(subData.expiresAt).toISOString())}
         </div>
       `}
@@ -610,7 +610,7 @@
           var rank = CONFIG.ranks[0];
           for(var i=CONFIG.ranks.length-1;i>=0;i--){if(plan.months>=CONFIG.ranks[i].minMonths){rank=CONFIG.ranks[i];break;}}
           return html`<div class="plan-card" key=${plan.id}>
-            <div class="plan-rank"><span class="rank-dot" style=${'background:'+rank.color}></span>${rank.name}</div>
+            <div class="plan-rank"><span class="rank-dot" style=${'background:'+rank.color}></span>${rank.icon} ${rank.name}</div>
             <div class="plan-label">${plan.label}</div>
             <div class="plan-price">${plan.price}</div>
             <ul class="plan-perks">
@@ -668,7 +668,7 @@
         <img class="profile-avatar-lg" src=${auth.user.photoURL||''} alt=""/>
         <div class="profile-info">
           <h2>${auth.user.displayName||'User'}</h2>
-          <span class="rank-badge" style=${'background:'+subData.rank.color}>${subData.rank.name}</span>
+          <span class="rank-badge" style=${'background:'+subData.rank.color}>${subData.rank.icon} ${subData.rank.name}</span>
           ${subData.active
             ? html`<p class="profile-sub">Premium · expires ${formatDate(new Date(subData.expiresAt).toISOString())}</p>`
             : html`<p class="profile-sub"><a href="#/subscribe">Get Premium →</a></p>`
