@@ -79,7 +79,15 @@
 
   function getUserData() {
     var d = loadLocal();
-    if (!d.bookmarks) d.bookmarks = {};
+    // Migrate old array format to new category object
+    if (!d.bookmarks || Array.isArray(d.bookmarks)) {
+      var old = Array.isArray(d.bookmarks) ? d.bookmarks : [];
+      d.bookmarks = {};
+      CONFIG.bookmarkCategories.forEach(function(c) { d.bookmarks[c] = []; });
+      // Put old bookmarks into "Watching" by default
+      if (old.length > 0) d.bookmarks['Watching'] = old;
+      saveLocal(d);
+    }
     CONFIG.bookmarkCategories.forEach(function(c) { if (!d.bookmarks[c]) d.bookmarks[c] = []; });
     if (!d.history) d.history = [];
     return d;
@@ -173,15 +181,21 @@
       if (doc.exists) {
         var cloud = doc.data();
         var local = getUserData();
-        // Merge bookmarks
-        CONFIG.bookmarkCategories.forEach(function(c) {
-          (cloud.bookmarks && cloud.bookmarks[c] || []).forEach(function(cb) {
-            if (!(local.bookmarks[c] || []).some(function(lb) { return lb.slug === cb.slug; })) {
-              if (!local.bookmarks[c]) local.bookmarks[c] = [];
-              local.bookmarks[c].push(cb);
-            }
+        // Handle cloud bookmarks being old array format
+        var cloudBm = cloud.bookmarks;
+        if (Array.isArray(cloudBm)) {
+          cloudBm = { Watching: cloudBm };
+        }
+        if (cloudBm && typeof cloudBm === 'object') {
+          CONFIG.bookmarkCategories.forEach(function(c) {
+            (cloudBm[c] || []).forEach(function(cb) {
+              if (!(local.bookmarks[c] || []).some(function(lb) { return lb.slug === cb.slug; })) {
+                if (!local.bookmarks[c]) local.bookmarks[c] = [];
+                local.bookmarks[c].push(cb);
+              }
+            });
           });
-        });
+        }
         // Merge history
         (cloud.history || []).forEach(function(ch) {
           if (!local.history.some(function(lh) { return lh.slug === ch.slug && lh.epTitle === ch.epTitle; })) local.history.push(ch);
