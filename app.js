@@ -379,7 +379,7 @@
 
   function Card(props) {
     var item = props.item, badge = props.badge, onClick = props.onClick, subtitle = props.subtitle;
-    var dateStr = formatDate(item.updated || item.published);
+    var dateStr = formatDate(item.published);
     return html`<article class="card" onClick=${function () { onClick(item); }}
       role="button" tabindex="0"
       onKeyDown=${function (e) { if (e.key === 'Enter') onClick(item); }}
@@ -568,7 +568,7 @@
                 onClick=${function () { selectEp(ep); }}>
                 <div class="ep-num">${num}</div>
                 <div class="ep-title">${ep.title}</div>
-                <div class="ep-meta">${formatDate(ep.updated || ep.published)}</div>
+                <div class="ep-meta">${formatDate(ep.published)}</div>
                 <div class="ep-actions">
                   ${ep.links.map(function (lnk) {
                     return html`<a class="ep-btn dl" href=${lnk.url} target="_blank" rel="noopener noreferrer"
@@ -679,7 +679,7 @@
                 <img class="timetable-thumb" src=${item.thumbnail} alt=${item.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${item.title}</div>
-                  <div class="timetable-meta">${item.episodes.length} ep · ${formatDate(latest ? latest.updated || latest.published : '')}</div>
+                  <div class="timetable-meta">${item.episodes.length} ep · ${formatDate(latest ? latest.published : '')}</div>
                 </div>
               </a>`;
             })}
@@ -709,7 +709,7 @@
                 <img class="timetable-thumb" src=${p.thumbnail} alt=${p.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${p.title}</div>
-                  <div class="timetable-meta">${formatDate(p.updated || p.published)} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
+                  <div class="timetable-meta">${formatDate(p.published)} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
                 </div>
                 ${p.video && html`<a class="release-play" href=${p.video} target="_blank" rel="noopener">▶</a>`}
               </div>`;
