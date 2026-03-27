@@ -46,8 +46,8 @@ img{display:block;max-width:100%;height:auto}
 .detail-page{max-width:900px;margin:0 auto;padding:0 4% 40px}
 .detail-back{display:inline-block;padding:16px 0;color:#999;font-size:13px;font-weight:600;transition:color .2s}
 .detail-back:hover{color:#fff}
-.detail-hero-wrap{position:relative;border-radius:14px;overflow:hidden;margin-bottom:24px}
-.detail-hero{width:100%;height:350px;object-fit:cover;display:block}
+.detail-hero-wrap{position:relative;border-radius:14px;overflow:visible;margin-bottom:24px}
+.detail-hero{width:100%;height:350px;object-fit:cover;display:block;border-radius:14px}
 .detail-hero-overlay{position:absolute;bottom:0;left:0;right:0;padding:30px 24px 20px;background:linear-gradient(transparent,rgba(0,0,0,.9))}
 .detail-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}
 .detail-labels{display:flex;gap:8px;flex-wrap:wrap}
@@ -167,11 +167,11 @@ img{display:block;max-width:100%;height:auto}
 
 /* === Bookmark Button === */
 .detail-actions{margin-top:12px}
-.bookmark-dropdown{position:relative;display:inline-block}
+.bookmark-dropdown{position:relative;display:inline-block;z-index:10}
 .bookmark-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#2a2a3e;color:#ccc;border:1px solid #3a3a4e;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
 .bookmark-btn:hover{background:#3a3a4e;color:#fff}
 .bookmark-btn.active{background:#e63946;color:#fff;border-color:#e63946}
-.bookmark-menu{position:absolute;top:100%;left:0;margin-top:4px;background:#1a1a2e;border:1px solid #2a2a3e;border-radius:8px;overflow:hidden;z-index:10;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.bookmark-menu{position:absolute;bottom:100%;left:0;margin-bottom:4px;background:#1a1a2e;border:1px solid #2a2a3e;border-radius:8px;overflow:hidden;z-index:20;min-width:140px;box-shadow:0 -8px 24px rgba(0,0,0,.5)}
 .bm-option{display:block;width:100%;padding:8px 14px;background:none;border:none;color:#ccc;font-size:13px;text-align:left;cursor:pointer;transition:all .15s}
 .bm-option:hover{background:#222238;color:#fff}
 .bm-option.active{color:#e63946}
