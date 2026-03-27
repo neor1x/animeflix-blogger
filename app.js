@@ -110,11 +110,15 @@
   function groupByTitle(posts) {
     var map = {};
     posts.forEach(function (p) {
-      // Extract base series name: strip episode numbers like "- 9-р анги", "8-р анги", "Ep 5" etc.
+      // Extract base series name: strip episode numbers
+      // Handles: "DanMachi S2 - 9-р анги", "Арифүрэта 7-р анги",
+      //          "Фэйри Тэйл 3-р улирлын 38-р анги", "Title Ep 5", "Title - 10"
       var base = p.title
-        .replace(/\s*[-–]\s*\d+.*$/i, '')       // "DanMachi S2 - 9-р анги" → "DanMachi S2"
-        .replace(/\s+\d+[-–].*$/i, '')           // "Арифүрэта 7-р анги" → "Арифүрэта"
-        .replace(/\s*ep(?:isode)?\s*\d+.*$/i, '')
+        .replace(/\s*[-–]\s*\d+[-\u0440].*$/i, '')           // "Title - 9-р анги"
+        .replace(/\s+\d+[-\u0440].*$/i, '')                   // "Title 7-р анги"
+        .replace(/\s+\d+[-–]\s*\u0440.*$/i, '')               // "Title 7-р ..."
+        .replace(/\s*ep(?:isode)?\s*\d+.*$/i, '')             // "Title Ep 5"
+        .replace(/\s*\d+[-–]\s*\u0440\s+\u0430\u043D\u0433\u0438.*$/i, '') // standalone "N-р анги"
         .trim();
       if (!base) base = p.title;
       var key = base.toLowerCase();
