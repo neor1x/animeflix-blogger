@@ -877,24 +877,25 @@
       // Build the HTML content (matches your blog post format)
       var contentHtml = '<div style="display: none">' + jsonStr + '</div>';
       if (thumbUrl.trim()) {
-        contentHtml += '<a href="' + thumbUrl.trim() + '" imageanchor="1">' +
+        contentHtml += '\n<a href="' + thumbUrl.trim() + '" imageanchor="1">' +
           '<img border="0" src="' + thumbUrl.trim() + '" /></a>';
       }
 
-      // Build the full output object
-      var postData = {
-        title: title.trim(),
-        content: contentHtml,
-        labels: labels.slice()
-      };
+      // Output: raw HTML for Blogger + labels list
+      var out = '═══ TITLE ═══\n' + title.trim() +
+        '\n\n═══ LABELS ═══\n' + (labels.length ? labels.join(', ') : '(none)') +
+        '\n\n═══ HTML CONTENT (paste into Blogger HTML editor) ═══\n' + contentHtml;
 
-      setOutput(JSON.stringify(postData, null, 2));
+      setOutput(out);
       setCopied(false);
     }, [title, videoUrl, thumbUrl, links, labels]);
 
-    var copyOutput = useCallback(function () {
+    var copyHtml = useCallback(function () {
       if (!output) return;
-      navigator.clipboard.writeText(output).then(function () {
+      // Extract just the HTML content part
+      var parts = output.split('═══ HTML CONTENT (paste into Blogger HTML editor) ═══\n');
+      var htmlPart = parts[1] || output;
+      navigator.clipboard.writeText(htmlPart).then(function () {
         setCopied(true);
         setTimeout(function () { setCopied(false); }, 2000);
       });
@@ -975,13 +976,14 @@
 
         ${output && html`
           <div class="form-group">
-            <label class="form-label">Output — copy this into Blogger</label>
+            <label class="form-label">Output</label>
             <div class="admin-output-wrap">
               <pre class="admin-output">${output}</pre>
-              <button class=${'btn-copy' + (copied ? ' copied' : '')} onClick=${copyOutput}>
-                ${copied ? 'Copied!' : 'Copy'}
+              <button class=${'btn-copy' + (copied ? ' copied' : '')} onClick=${copyHtml}>
+                ${copied ? 'Copied HTML!' : 'Copy HTML'}
               </button>
             </div>
+            <p class="admin-hint">1. Copy the HTML → Blogger → New Post → switch to HTML view → paste<br/>2. Set the title and labels as shown above<br/>3. Publish</p>
           </div>
         `}
       </div>
