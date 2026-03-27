@@ -710,7 +710,7 @@
                 <img class="timetable-thumb" src=${p.thumbnail} alt=${p.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${p.title}</div>
-                  <div class="timetable-meta">${formatDate(p.updated || p.published)} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
+                  <div class="timetable-meta">${formatDate(p.published)} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
                 </div>
                 ${p.video && html`<span class="release-play">▶</span>`}
               </a>`;
