@@ -870,25 +870,33 @@
 
       var validLinks = links.filter(function (l) { return l.name.trim() && l.url.trim(); });
 
-      // Build the hidden JSON data div
-      var dataObj = { data: { video: videoUrl.trim(), links: validLinks } };
-      var jsonStr = JSON.stringify(dataObj, null, 2);
+      // Build JSON data matching exact blog format with spacing
+      var linksStr = validLinks.map(function (l) {
+        return '          {' +
+          '\n               "name": "' + l.name.trim() + '",' +
+          '\n              "url": "' + l.url.trim() + '"' +
+          '\n          }';
+      }).join(',\n');
 
-      // Build the HTML content (matches your blog post format)
-      var contentHtml = '<div style="display: none">' + jsonStr + '</div>';
+      var jsonBlock = '{' +
+        '\n     "data":' +
+        '\n     {' +
+        '\n         "video": "' + videoUrl.trim() + '",' +
+        '\n         "links": [' +
+        '\n' + linksStr +
+        '\n         ]' +
+        '\n     }' +
+        '\n }';
+
+      // Build exact HTML matching existing posts
+      var contentHtml = '<div style="display: none">' + jsonBlock + ' </div>';
       if (thumbUrl.trim()) {
-        contentHtml += '<a href="' + thumbUrl.trim() + '" imageanchor="1">' +
-          '<img border="0" src="' + thumbUrl.trim() + '" /></a>';
+        contentHtml += '<a href="' + thumbUrl.trim() + '" imageanchor="1" >' +
+          '<img border="0" src="' + thumbUrl.trim() + '"' +
+          ' data-original-width="400" data-original-height="566" /></a>';
       }
 
-      // Build the full output object
-      var postData = {
-        title: title.trim(),
-        content: contentHtml,
-        labels: labels.slice()
-      };
-
-      setOutput(JSON.stringify(postData, null, 2));
+      setOutput(contentHtml);
       setCopied(false);
     }, [title, videoUrl, thumbUrl, links, labels]);
 
@@ -975,7 +983,15 @@
 
         ${output && html`
           <div class="form-group">
-            <label class="form-label">Output — copy this into Blogger</label>
+            <label class="form-label">Title</label>
+            <pre class="admin-output" style="color:#fff">${title}</pre>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Labels</label>
+            <pre class="admin-output" style="color:#fff">${labels.join(', ') || '(none)'}</pre>
+          </div>
+          <div class="form-group">
+            <label class="form-label">HTML Content — paste into Blogger HTML editor</label>
             <div class="admin-output-wrap">
               <pre class="admin-output">${output}</pre>
               <button class=${'btn-copy' + (copied ? ' copied' : '')} onClick=${copyOutput}>
