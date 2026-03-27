@@ -828,7 +828,7 @@
           <button class="user-btn" onClick=${function(e){e.stopPropagation();setUserMenu(!userMenu);}}>
             <img class="user-avatar" src=${auth.user.photoURL||''} alt=""/>
             <span class="user-name">${auth.user.displayName||'User'}</span>
-            ${subData.rank.name!=='Free'&&html`<span class="rank-dot-sm" style=${'background:'+subData.rank.color}></span>`}
+            ${subData.rank.name!=='Free'&&html`<span class="rank-icon-sm">${subData.rank.icon}</span>`}
           </button>
           ${userMenu&&html`<div class="user-menu">
             <a href="#/profile" class="user-menu-item" onClick=${function(){setUserMenu(false);}}>View Profile</a>
