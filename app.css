@@ -250,3 +250,11 @@ img{display:block;max-width:100%;height:auto}
 .comment-text code{background:#1a1a2e;padding:1px 4px;border-radius:3px;font-size:12px}
 .comment-text a{color:#e63946}
 .comment-empty{color:#666;font-size:13px}
+
+/* === Buttons === */
+.btn-google{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-google:hover{background:#ff6b7a}
+.btn-small{padding:5px 14px;background:#2a2a3e;color:#ccc;border:1px solid #3a3a4e;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-small:hover{background:#3a3a4e;color:#fff}
+.btn-remove{background:none;border:none;color:#666;font-size:16px;cursor:pointer;padding:4px 8px;transition:color .2s}
+.btn-remove:hover{color:#e63946}
