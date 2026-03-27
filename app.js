@@ -135,19 +135,28 @@
 
   // ─── Subscription & Rank ──────────────────────────────────────
   function getSubData(userDoc) {
-    if (!userDoc || !userDoc.subscription) return { active: false, rank: CONFIG.ranks[0], totalMonths: 0 };
-    var sub = userDoc.subscription;
-    var now = Date.now();
-    var active = sub.expiresAt && sub.expiresAt > now;
-    var totalMonths = sub.totalMonths || 0;
-    var rank = CONFIG.ranks[0];
-    for (var i = CONFIG.ranks.length - 1; i >= 0; i--) {
-      if (totalMonths >= CONFIG.ranks[i].minMonths) { rank = CONFIG.ranks[i]; break; }
+    try {
+      if (!userDoc || !userDoc.subscription) return { active: false, rank: CONFIG.ranks[0], totalMonths: 0 };
+      var sub = userDoc.subscription;
+      var now = Date.now();
+      // Handle Firestore Timestamp or plain number
+      var exp = sub.expiresAt;
+      if (exp && typeof exp === 'object' && exp.toMillis) exp = exp.toMillis();
+      else if (exp && typeof exp === 'object' && exp.seconds) exp = exp.seconds * 1000;
+      else exp = Number(exp) || 0;
+      var active = exp > now;
+      var totalMonths = Number(sub.totalMonths) || 0;
+      var rank = CONFIG.ranks[0];
+      for (var i = CONFIG.ranks.length - 1; i >= 0; i--) {
+        if (totalMonths >= CONFIG.ranks[i].minMonths) { rank = CONFIG.ranks[i]; break; }
+      }
+      return { active: active, rank: rank, totalMonths: totalMonths, expiresAt: exp };
+    } catch(e) {
+      return { active: false, rank: CONFIG.ranks[0], totalMonths: 0 };
     }
-    return { active: active, rank: rank, totalMonths: totalMonths, expiresAt: sub.expiresAt };
   }
 
-  function isPremium(userDoc) { return getSubData(userDoc).active; }
+  function isPremium(userDoc) { try { return getSubData(userDoc).active; } catch(e) { return false; } }
 
   // ─── Auth hooks ───────────────────────────────────────────────
   function signInWithGoogle() {
