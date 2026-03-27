@@ -437,7 +437,7 @@
     }, [initialQuery]);
 
     var handleClick = useCallback(function (item) {
-      navigate('/title/' + item.slug);
+      navigate('/title/' + encodeURIComponent(item.slug));
     }, []);
 
     return html`<div class="search-page">
@@ -500,7 +500,7 @@
             ${all.map(function (item) {
               var latest = item.episodes[item.episodes.length - 1];
               var date = latest ? new Date(latest.published).toLocaleDateString() : '';
-              return html`<a class="timetable-row" href=${'#/title/' + item.slug} key=${item.slug}>
+              return html`<a class="timetable-row" href=${'#/title/' + encodeURIComponent(item.slug)} key=${item.slug}>
                 <img class="timetable-thumb" src=${item.thumbnail} alt=${item.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${item.title}</div>
@@ -595,7 +595,7 @@
     var route = useRouter();
 
     var handleCardClick = useCallback(function (item) {
-      navigate('/title/' + item.slug);
+      navigate('/title/' + encodeURIComponent(item.slug));
     }, []);
 
     var page;
@@ -615,7 +615,7 @@
       var sq = decodeURIComponent(route.replace('/search/', '').replace('/search', ''));
       page = html`<${SearchPage} query=${sq}/>`;
     } else if (route.indexOf('/title/') === 0) {
-      var titleSlug = route.replace('/title/', '');
+      var titleSlug = decodeURIComponent(route.replace('/title/', ''));
       page = html`<${DetailPage} slug=${titleSlug}/>`;
     } else {
       page = html`<div class="static-page"><h1>404</h1><p>Page not found.</p><a href="#/">← Home</a></div>`;
