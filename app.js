@@ -20,6 +20,168 @@
     sectionLabels: ['Ongoing', 'Movie', 'OVA', 'Finished'],
   };
 
+  // ─── Firebase Config (optional — leave empty to use localStorage only) ──
+  var FIREBASE_CONFIG = {
+    // Paste your Firebase config here to enable Google sign-in and cloud sync:
+    // apiKey: "...",
+    // authDomain: "...",
+    // projectId: "...",
+    // storageBucket: "...",
+    // messagingSenderId: "...",
+    // appId: "..."
+  };
+
+  // Auto-init Firebase if config is provided
+  if (FIREBASE_CONFIG.apiKey) {
+    // Load Firebase SDK dynamically
+    var fbScripts = [
+      'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
+      'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',
+      'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js'
+    ];
+    var loaded = 0;
+    fbScripts.forEach(function(src) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function() {
+        loaded++;
+        if (loaded === fbScripts.length) initFirebase(FIREBASE_CONFIG);
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  // ─── User Data (localStorage + optional Firebase sync) ────────
+  var STORAGE_KEY = 'animeflix_user';
+  var firebaseReady = false;
+  var firebaseAuth = null;
+  var firebaseDb = null;
+
+  function loadLocal() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { return {}; }
+  }
+  function saveLocal(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+  }
+
+  function getUserData() {
+    var d = loadLocal();
+    if (!d.bookmarks) d.bookmarks = [];
+    if (!d.history) d.history = [];
+    return d;
+  }
+
+  function saveUserData(data) {
+    saveLocal(data);
+    // Sync to Firestore if signed in
+    if (firebaseReady && firebaseAuth && firebaseAuth.currentUser && firebaseDb) {
+      var uid = firebaseAuth.currentUser.uid;
+      firebaseDb.collection('users').doc(uid).set({
+        bookmarks: data.bookmarks || [],
+        history: data.history || []
+      }, { merge: true }).catch(function(){});
+    }
+  }
+
+  function addBookmark(slug, title, thumbnail) {
+    var d = getUserData();
+    if (d.bookmarks.some(function(b){ return b.slug === slug; })) return d;
+    d.bookmarks.unshift({ slug: slug, title: title, thumbnail: thumbnail, addedAt: Date.now() });
+    saveUserData(d);
+    return d;
+  }
+
+  function removeBookmark(slug) {
+    var d = getUserData();
+    d.bookmarks = d.bookmarks.filter(function(b){ return b.slug !== slug; });
+    saveUserData(d);
+    return d;
+  }
+
+  function isBookmarked(slug) {
+    return getUserData().bookmarks.some(function(b){ return b.slug === slug; });
+  }
+
+  function addHistory(slug, title, thumbnail, epTitle) {
+    var d = getUserData();
+    // Remove old entry for same slug
+    d.history = d.history.filter(function(h){ return h.slug !== slug; });
+    d.history.unshift({ slug: slug, title: title, thumbnail: thumbnail, epTitle: epTitle, watchedAt: Date.now() });
+    // Keep last 50
+    if (d.history.length > 50) d.history = d.history.slice(0, 50);
+    saveUserData(d);
+    return d;
+  }
+
+  // Firebase init (called when SDK loads)
+  function initFirebase(config) {
+    if (typeof firebase === 'undefined') return;
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(config);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+      firebaseReady = true;
+    } catch(e) { firebaseReady = false; }
+  }
+
+  function signInWithGoogle() {
+    if (!firebaseReady || !firebaseAuth) return Promise.reject('Firebase not ready');
+    var provider = new firebase.auth.GoogleAuthProvider();
+    return firebaseAuth.signInWithPopup(provider).then(function(result) {
+      // Pull cloud data and merge with local
+      return syncFromCloud().then(function(){ return result.user; });
+    });
+  }
+
+  function signOut() {
+    if (!firebaseReady || !firebaseAuth) return Promise.resolve();
+    return firebaseAuth.signOut();
+  }
+
+  function syncFromCloud() {
+    if (!firebaseReady || !firebaseAuth || !firebaseAuth.currentUser || !firebaseDb) return Promise.resolve();
+    var uid = firebaseAuth.currentUser.uid;
+    return firebaseDb.collection('users').doc(uid).get().then(function(doc) {
+      if (doc.exists) {
+        var cloud = doc.data();
+        var local = getUserData();
+        // Merge: cloud bookmarks that aren't in local
+        (cloud.bookmarks || []).forEach(function(cb) {
+          if (!local.bookmarks.some(function(lb){ return lb.slug === cb.slug; })) {
+            local.bookmarks.push(cb);
+          }
+        });
+        // Merge history
+        (cloud.history || []).forEach(function(ch) {
+          if (!local.history.some(function(lh){ return lh.slug === ch.slug && lh.epTitle === ch.epTitle; })) {
+            local.history.push(ch);
+          }
+        });
+        local.history.sort(function(a,b){ return (b.watchedAt||0) - (a.watchedAt||0); });
+        local.history = local.history.slice(0, 50);
+        saveLocal(local);
+        // Push merged data back to cloud
+        saveUserData(local);
+      }
+    }).catch(function(){});
+  }
+
+  // Auth state hook
+  function useAuth() {
+    var s = useState(null), user = s[0], setUser = s[1];
+    var s2 = useState(true), loading = s2[0], setLoading = s2[1];
+    useEffect(function() {
+      if (!firebaseReady || !firebaseAuth) { setLoading(false); return; }
+      var unsub = firebaseAuth.onAuthStateChanged(function(u) {
+        setUser(u);
+        setLoading(false);
+        if (u) syncFromCloud();
+      });
+      return unsub;
+    }, []);
+    return { user: user, loading: loading };
+  }
+
   // ─── Router ───────────────────────────────────────────────────
   function getRoute() { return window.location.hash.slice(1) || '/'; }
   function navigate(path) { window.location.hash = path; }
@@ -305,6 +467,7 @@
     var s = useState(null), item = s[0], setItem = s[1];
     var s2 = useState(true), loading = s2[0], setLoading = s2[1];
     var s3 = useState(null), activeEp = s3[0], setActiveEp = s3[1];
+    var s4 = useState(false), bookmarked = s4[0], setBookmarked = s4[1];
 
     useEffect(function () {
       setLoading(true);
@@ -313,10 +476,10 @@
         var grouped = groupByTitle(all);
         var found = grouped.find(function (g) { return g.slug === slug; });
         setItem(found || null);
-        // Auto-select latest episode
         if (found && found.episodes.length > 0) {
           setActiveEp(found.episodes[found.episodes.length - 1]);
         }
+        setBookmarked(isBookmarked(slug));
         setLoading(false);
       });
     }, [slug]);
@@ -325,7 +488,19 @@
 
     var selectEp = useCallback(function (ep) {
       setActiveEp(ep);
-    }, []);
+      // Track history
+      if (item) addHistory(slug, item.title, item.thumbnail, ep.title);
+    }, [item, slug]);
+
+    var toggleBookmark = useCallback(function () {
+      if (bookmarked) {
+        removeBookmark(slug);
+        setBookmarked(false);
+      } else if (item) {
+        addBookmark(slug, item.title, item.thumbnail);
+        setBookmarked(true);
+      }
+    }, [bookmarked, item, slug]);
 
     if (loading) return html`<div class="detail-page">
       <div class="detail-loading"><div class="skeleton" style="width:100%;height:350px;border-radius:14px"></div></div>
@@ -357,6 +532,10 @@
             })}
             <span class="detail-label">${item.episodes.length} episode${item.episodes.length !== 1 ? 's' : ''}</span>
           </div>
+          <button class=${'bookmark-btn' + (bookmarked ? ' active' : '')} onClick=${toggleBookmark}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill=${bookmarked ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+            ${bookmarked ? 'Bookmarked' : 'Bookmark'}
+          </button>
         </div>
       </div>
 
@@ -541,6 +720,107 @@
     </div>`;
   }
 
+  // ─── Profile Page (bookmarks, history, sign in) ────────────────
+  function ProfilePage() {
+    var auth = useAuth();
+    var s = useState(getUserData()), data = s[0], setData = s[1];
+    var s2 = useState('bookmarks'), tab = s2[0], setTab = s2[1];
+
+    var refresh = useCallback(function() { setData(getUserData()); }, []);
+
+    var handleSignIn = useCallback(function() {
+      signInWithGoogle().then(function() { refresh(); }).catch(function(){});
+    }, []);
+
+    var handleSignOut = useCallback(function() {
+      signOut().then(function() { refresh(); });
+    }, []);
+
+    var handleRemoveBookmark = useCallback(function(slug) {
+      removeBookmark(slug);
+      refresh();
+    }, []);
+
+    var handleClearHistory = useCallback(function() {
+      var d = getUserData();
+      d.history = [];
+      saveUserData(d);
+      refresh();
+    }, []);
+
+    return html`<div class="static-page">
+      <div class="profile-header">
+        <h1>My Profile</h1>
+        ${firebaseReady && html`
+          <div class="profile-auth">
+            ${auth.user
+              ? html`<div class="profile-user">
+                  <img class="profile-avatar" src=${auth.user.photoURL || ''} alt=""/>
+                  <span>${auth.user.displayName || 'User'}</span>
+                  <button class="btn-small" onClick=${handleSignOut}>Sign out</button>
+                </div>`
+              : html`<button class="btn-google" onClick=${handleSignIn}>
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg>
+                  Sign in with Google
+                </button>`
+            }
+          </div>
+        `}
+      </div>
+
+      ${!firebaseReady && html`<p class="profile-note">Sign in is not configured. Bookmarks and history are saved locally in this browser.</p>`}
+
+      <div class="profile-tabs">
+        <button class=${'profile-tab' + (tab === 'bookmarks' ? ' active' : '')} onClick=${function(){ setTab('bookmarks'); }}>
+          Bookmarks (${data.bookmarks.length})
+        </button>
+        <button class=${'profile-tab' + (tab === 'history' ? ' active' : '')} onClick=${function(){ setTab('history'); }}>
+          History (${data.history.length})
+        </button>
+      </div>
+
+      ${tab === 'bookmarks' && html`
+        <div class="timetable-grid">
+          ${data.bookmarks.length === 0
+            ? html`<p style="color:#888;padding:20px 0">No bookmarks yet. Open a title and click Bookmark.</p>`
+            : data.bookmarks.map(function(b) {
+                return html`<div class="timetable-row" key=${b.slug}>
+                  <a href=${'#/title/' + encodeURIComponent(b.slug)} style="display:contents;color:inherit">
+                    <img class="timetable-thumb" src=${b.thumbnail} alt=${b.title}/>
+                    <div class="timetable-info">
+                      <div class="timetable-title">${b.title}</div>
+                      <div class="timetable-meta">Added ${formatDate(new Date(b.addedAt).toISOString())}</div>
+                    </div>
+                  </a>
+                  <button class="btn-remove" onClick=${function(){ handleRemoveBookmark(b.slug); }} title="Remove">✕</button>
+                </div>`;
+              })
+          }
+        </div>
+      `}
+
+      ${tab === 'history' && html`
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          ${data.history.length > 0 && html`<button class="btn-small" onClick=${handleClearHistory}>Clear history</button>`}
+        </div>
+        <div class="timetable-grid">
+          ${data.history.length === 0
+            ? html`<p style="color:#888;padding:20px 0">No watch history yet.</p>`
+            : data.history.map(function(h) {
+                return html`<a class="timetable-row" href=${'#/title/' + encodeURIComponent(h.slug)} key=${h.slug + h.watchedAt}>
+                  <img class="timetable-thumb" src=${h.thumbnail} alt=${h.title}/>
+                  <div class="timetable-info">
+                    <div class="timetable-title">${h.title}</div>
+                    <div class="timetable-meta">${h.epTitle || ''} · ${formatDate(new Date(h.watchedAt).toISOString())}</div>
+                  </div>
+                </a>`;
+              })
+          }
+        </div>
+      `}
+    </div>`;
+  }
+
   // ─── Navbar ───────────────────────────────────────────────────
   function Navbar(props) {
     var route = props.route;
@@ -550,6 +830,7 @@
       { href: '#/about', label: 'About' },
       { href: '#/timetable', label: 'Timetable' },
       { href: '#/releases', label: 'Releases' },
+      { href: '#/profile', label: 'Profile' },
     ];
     return html`<header class="header">
       <a href="#/" class="logo">Anime<span>Flix</span></a>
@@ -590,6 +871,8 @@
       page = html`<${TimetablePage}/>`;
     } else if (route === '/releases') {
       page = html`<${ReleasesPage}/>`;
+    } else if (route === '/profile') {
+      page = html`<${ProfilePage}/>`;
     } else if (route.indexOf('/search') === 0) {
       var sq = decodeURIComponent(route.replace('/search/', '').replace('/search', ''));
       page = html`<${SearchPage} query=${sq}/>`;

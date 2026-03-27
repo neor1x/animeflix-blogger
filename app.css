@@ -136,3 +136,26 @@ img{display:block;max-width:100%;height:auto}
 
 /* === Hide Blogger chrome === */
 .navbar,.blog-pager,.feed-links,.post-feeds,#navbar,#blog-pager,.blog-feeds{display:none!important}
+
+/* === Bookmark Button === */
+.bookmark-btn{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:8px 16px;background:#2a2a3e;color:#ccc;border:1px solid #3a3a4e;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.bookmark-btn:hover{background:#3a3a4e;color:#fff}
+.bookmark-btn.active{background:#e63946;color:#fff;border-color:#e63946}
+
+/* === Profile Page === */
+.profile-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.profile-header h1{margin:0}
+.profile-auth{display:flex;align-items:center;gap:10px}
+.profile-user{display:flex;align-items:center;gap:8px;font-size:14px;color:#ccc}
+.profile-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover}
+.profile-note{color:#666;font-size:13px;margin-bottom:16px}
+.profile-tabs{display:flex;gap:4px;margin-bottom:16px}
+.profile-tab{padding:8px 18px;background:#1a1a2e;color:#888;border:1px solid #2a2a3e;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.profile-tab:hover{color:#fff}
+.profile-tab.active{background:#e63946;color:#fff;border-color:#e63946}
+.btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-google:hover{background:#ff6b7a}
+.btn-small{padding:4px 12px;background:#2a2a3e;color:#ccc;border:1px solid #3a3a4e;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s}
+.btn-small:hover{background:#3a3a4e;color:#fff}
+.btn-remove{background:none;border:none;color:#666;font-size:16px;cursor:pointer;padding:4px 8px;transition:color .2s}
+.btn-remove:hover{color:#e63946}
