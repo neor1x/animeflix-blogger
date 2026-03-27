@@ -705,14 +705,15 @@
         ? html`<div class="slider-track" style="flex-wrap:wrap;padding:0"><${SkeletonCards} count=${6}/></div>`
         : html`<div class="timetable-grid">
             ${posts.map(function (p) {
-              return html`<div class="timetable-row" key=${p.id} style="cursor:default">
+              var titleSlug = getBaseName(p.title).replace(/[^a-zA-Z0-9\u0400-\u04FF\u1800-\u18AF]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+              return html`<a class="timetable-row" href=${'#/title/' + encodeURIComponent(titleSlug)} key=${p.id}>
                 <img class="timetable-thumb" src=${p.thumbnail} alt=${p.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${p.title}</div>
                   <div class="timetable-meta">${formatDate(p.updated || p.published)} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
                 </div>
-                ${p.video && html`<a class="release-play" href=${p.video} target="_blank" rel="noopener">▶</a>`}
-              </div>`;
+                ${p.video && html`<span class="release-play">▶</span>`}
+              </a>`;
             })}
           </div>`
       }
