@@ -134,6 +134,34 @@ img{display:block;max-width:100%;height:auto}
   .ep-title{max-width:120px}
 }
 
+/* === Admin Form === */
+.admin-form{display:flex;flex-direction:column;gap:18px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:13px;font-weight:600;color:#999}
+.form-input{background:#1a1a2e;border:1px solid #2a2a3e;border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none;transition:border-color .2s;width:100%;font-family:inherit}
+.form-input:focus{border-color:#e63946}
+.form-input-sm{max-width:160px}
+.form-input::placeholder{color:#555}
+.admin-link-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.admin-link-row .form-input{flex:1}
+.admin-labels{display:flex;gap:6px;flex-wrap:wrap}
+.label-chip{padding:5px 14px;background:#1a1a2e;color:#888;border:1px solid #2a2a3e;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:4px}
+.label-chip:hover{color:#fff;border-color:#3a3a4e}
+.label-chip.active{background:#e63946;color:#fff;border-color:#e63946}
+.label-x{cursor:pointer;opacity:.7;font-size:14px}
+.label-x:hover{opacity:1}
+.admin-custom-label{display:flex;gap:6px;margin-top:8px;align-items:center}
+.admin-custom-label .form-input{flex:1}
+.admin-actions{display:flex;gap:10px;align-items:center}
+.btn-generate{padding:10px 24px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-generate:hover{background:#ff6b7a}
+.admin-output-wrap{position:relative}
+.admin-output{background:#111118;border:1px solid #2a2a3e;border-radius:8px;padding:14px;color:#8f8;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;font-family:'Courier New',monospace}
+.btn-copy{position:absolute;top:8px;right:8px;padding:4px 12px;background:#2a2a3e;color:#ccc;border:1px solid #3a3a4e;border-radius:6px;font-size:11px;cursor:pointer;transition:all .2s}
+.btn-copy:hover{background:#3a3a4e;color:#fff}
+.btn-copy.copied{background:#e63946;color:#fff;border-color:#e63946}
+.admin-thumb-preview{margin-top:8px;max-width:120px;border-radius:8px;border:1px solid #2a2a3e}
+
 /* === Hide Blogger chrome === */
 .navbar,.blog-pager,.feed-links,.post-feeds,#navbar,#blog-pager,.blog-feeds{display:none!important}
 

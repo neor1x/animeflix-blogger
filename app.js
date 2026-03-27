@@ -820,6 +820,174 @@
     </div>`;
   }
 
+  // ─── Admin: Add Post ───────────────────────────────────────────
+  function AdminPage() {
+    var s1 = useState(''), title = s1[0], setTitle = s1[1];
+    var s2 = useState(''), videoUrl = s2[0], setVideoUrl = s2[1];
+    var s3 = useState(''), thumbUrl = s3[0], setThumbUrl = s3[1];
+    var s4 = useState([{ name: '', url: '' }]), links = s4[0], setLinks = s4[1];
+    var s5 = useState([]), labels = s5[0], setLabels = s5[1];
+    var s6 = useState(''), customLabel = s6[0], setCustomLabel = s6[1];
+    var s7 = useState(''), output = s7[0], setOutput = s7[1];
+    var s8 = useState(false), copied = s8[0], setCopied = s8[1];
+
+    var addLink = useCallback(function () {
+      setLinks(links.concat([{ name: '', url: '' }]));
+    }, [links]);
+
+    var removeLink = useCallback(function (i) {
+      setLinks(links.filter(function (_, idx) { return idx !== i; }));
+    }, [links]);
+
+    var updateLink = useCallback(function (i, field, val) {
+      var updated = links.map(function (l, idx) {
+        if (idx !== i) return l;
+        var copy = { name: l.name, url: l.url };
+        copy[field] = val;
+        return copy;
+      });
+      setLinks(updated);
+    }, [links]);
+
+    var toggleLabel = useCallback(function (label) {
+      if (labels.indexOf(label) !== -1) {
+        setLabels(labels.filter(function (l) { return l !== label; }));
+      } else {
+        setLabels(labels.concat([label]));
+      }
+    }, [labels]);
+
+    var addCustomLabel = useCallback(function () {
+      var l = customLabel.trim();
+      if (l && labels.indexOf(l) === -1) {
+        setLabels(labels.concat([l]));
+        setCustomLabel('');
+      }
+    }, [customLabel, labels]);
+
+    var generate = useCallback(function () {
+      if (!title.trim()) { setOutput(''); return; }
+
+      var validLinks = links.filter(function (l) { return l.name.trim() && l.url.trim(); });
+
+      // Build the hidden JSON data div
+      var dataObj = { data: { video: videoUrl.trim(), links: validLinks } };
+      var jsonStr = JSON.stringify(dataObj, null, 2);
+
+      // Build the HTML content (matches your blog post format)
+      var contentHtml = '<div style="display: none">' + jsonStr + '</div>';
+      if (thumbUrl.trim()) {
+        contentHtml += '<a href="' + thumbUrl.trim() + '" imageanchor="1">' +
+          '<img border="0" src="' + thumbUrl.trim() + '" /></a>';
+      }
+
+      // Build the full output object
+      var postData = {
+        title: title.trim(),
+        content: contentHtml,
+        labels: labels.slice()
+      };
+
+      setOutput(JSON.stringify(postData, null, 2));
+      setCopied(false);
+    }, [title, videoUrl, thumbUrl, links, labels]);
+
+    var copyOutput = useCallback(function () {
+      if (!output) return;
+      navigator.clipboard.writeText(output).then(function () {
+        setCopied(true);
+        setTimeout(function () { setCopied(false); }, 2000);
+      });
+    }, [output]);
+
+    var resetForm = useCallback(function () {
+      setTitle(''); setVideoUrl(''); setThumbUrl('');
+      setLinks([{ name: '', url: '' }]);
+      setLabels([]); setOutput(''); setCopied(false);
+    }, []);
+
+    return html`<div class="static-page">
+      <h1>Add Episode</h1>
+      <p class="static-subtitle">Fill in the fields and generate the post JSON for Blogger</p>
+
+      <div class="admin-form">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input class="form-input" type="text" placeholder="e.g. DanMachi S2 - 10-р анги"
+            value=${title} onInput=${function (e) { setTitle(e.target.value); }}/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Video Embed URL</label>
+          <input class="form-input" type="text" placeholder="e.g. //ok.ru/videoembed/123456"
+            value=${videoUrl} onInput=${function (e) { setVideoUrl(e.target.value); }}/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Thumbnail Image URL</label>
+          <input class="form-input" type="text" placeholder="e.g. https://blogger.googleusercontent.com/img/..."
+            value=${thumbUrl} onInput=${function (e) { setThumbUrl(e.target.value); }}/>
+          ${thumbUrl && html`<img class="admin-thumb-preview" src=${thumbUrl} alt="Preview"/>`}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Download Links</label>
+          ${links.map(function (lnk, i) {
+            return html`<div class="admin-link-row" key=${i}>
+              <input class="form-input form-input-sm" type="text" placeholder="Name (e.g. MEGA)"
+                value=${lnk.name} onInput=${function (e) { updateLink(i, 'name', e.target.value); }}/>
+              <input class="form-input" type="text" placeholder="URL"
+                value=${lnk.url} onInput=${function (e) { updateLink(i, 'url', e.target.value); }}/>
+              ${links.length > 1 && html`<button class="btn-remove" onClick=${function () { removeLink(i); }}>✕</button>`}
+            </div>`;
+          })}
+          <button class="btn-small" onClick=${addLink} style="margin-top:6px">+ Add link</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Labels</label>
+          <div class="admin-labels">
+            ${CONFIG.sectionLabels.map(function (l) {
+              var active = labels.indexOf(l) !== -1;
+              return html`<button class=${'label-chip' + (active ? ' active' : '')}
+                onClick=${function () { toggleLabel(l); }}>${l}</button>`;
+            })}
+          </div>
+          <div class="admin-custom-label">
+            <input class="form-input form-input-sm" type="text" placeholder="Custom label..."
+              value=${customLabel} onInput=${function (e) { setCustomLabel(e.target.value); }}
+              onKeyDown=${function (e) { if (e.key === 'Enter') addCustomLabel(); }}/>
+            <button class="btn-small" onClick=${addCustomLabel}>Add</button>
+          </div>
+          ${labels.length > 0 && html`<div class="admin-labels" style="margin-top:8px">
+            ${labels.map(function (l) {
+              return html`<span class="label-chip active" key=${l}>
+                ${l} <span class="label-x" onClick=${function () { toggleLabel(l); }}>✕</span>
+              </span>`;
+            })}
+          </div>`}
+        </div>
+
+        <div class="admin-actions">
+          <button class="btn-generate" onClick=${generate}>Generate JSON</button>
+          <button class="btn-small" onClick=${resetForm}>Reset</button>
+        </div>
+
+        ${output && html`
+          <div class="form-group">
+            <label class="form-label">Output — copy this into Blogger</label>
+            <div class="admin-output-wrap">
+              <pre class="admin-output">${output}</pre>
+              <button class=${'btn-copy' + (copied ? ' copied' : '')} onClick=${copyOutput}>
+                ${copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        `}
+      </div>
+    </div>`;
+  }
+
   // ─── Navbar ───────────────────────────────────────────────────
   function Navbar(props) {
     var route = props.route;
@@ -872,6 +1040,8 @@
       page = html`<${ReleasesPage}/>`;
     } else if (route === '/profile') {
       page = html`<${ProfilePage}/>`;
+    } else if (route === '/admin') {
+      page = html`<${AdminPage}/>`;
     } else if (route.indexOf('/search') === 0) {
       var sq = decodeURIComponent(route.replace('/search/', '').replace('/search', ''));
       page = html`<${SearchPage} query=${sq}/>`;
