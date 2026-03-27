@@ -1,12 +1,10 @@
 // AnimeFlix - Lightweight Blogger-powered anime site
-// Preact + HTM, no build step
 ;(function () {
   'use strict';
 
   var h = preact.h, render = preact.render;
   var useState = preactHooks.useState, useEffect = preactHooks.useEffect,
-      useRef = preactHooks.useRef, useCallback = preactHooks.useCallback,
-      useMemo = preactHooks.useMemo;
+      useRef = preactHooks.useRef, useCallback = preactHooks.useCallback;
   var html = htm.bind(h);
 
   // ─── Config ───────────────────────────────────────────────────
@@ -22,15 +20,9 @@
     sectionLabels: ['Ongoing', 'Movie', 'OVA', 'Finished'],
   };
 
-  // ─── Simple hash router ───────────────────────────────────────
-  function getRoute() {
-    var hash = window.location.hash.slice(1) || '/';
-    return hash;
-  }
-
-  function navigate(path) {
-    window.location.hash = path;
-  }
+  // ─── Router ───────────────────────────────────────────────────
+  function getRoute() { return window.location.hash.slice(1) || '/'; }
+  function navigate(path) { window.location.hash = path; }
 
   function useRouter() {
     var s = useState(getRoute()), route = s[0], setRoute = s[1];
@@ -44,6 +36,7 @@
 
   // ─── Blogger Feed ─────────────────────────────────────────────
   var feedCache = {};
+  var allPostsCache = null;
 
   function fetchByLabel(label) {
     if (feedCache[label]) return Promise.resolve(feedCache[label]);
@@ -56,12 +49,20 @@
     }).catch(function () { return []; });
   }
 
-  function searchPosts(q) {
-    var url = CONFIG.blogUrl + '/feeds/posts/default?alt=json&max-results=50&q=' +
-      encodeURIComponent(q);
-    return fetch(url).then(function (r) { return r.json(); }).then(function (data) {
-      return (data.feed.entry || []).map(parseEntry);
-    }).catch(function () { return []; });
+  function fetchAllPosts() {
+    if (allPostsCache) return Promise.resolve(allPostsCache);
+    var promises = CONFIG.sections.map(function (s) { return fetchByLabel(s.label); });
+    return Promise.all(promises).then(function (results) {
+      var all = [];
+      var seen = {};
+      results.forEach(function (posts) {
+        posts.forEach(function (p) {
+          if (!seen[p.id]) { seen[p.id] = true; all.push(p); }
+        });
+      });
+      allPostsCache = all;
+      return all;
+    });
   }
 
   // ─── Post Parser ──────────────────────────────────────────────
@@ -69,9 +70,8 @@
     var title = entry.title.$t || '';
     var rawContent = entry.content ? entry.content.$t : '';
     var published = entry.published.$t || '';
+    var updated = entry.updated ? entry.updated.$t : published;
     var labels = entry.category ? entry.category.map(function (c) { return c.term; }) : [];
-    var altLink = entry.link.find(function (l) { return l.rel === 'alternate'; });
-    var url = altLink ? altLink.href : '#';
     var id = entry.id.$t || '';
 
     var video = '', links = [];
@@ -96,31 +96,36 @@
     }
     if (thumbnail) thumbnail = thumbnail.replace(/\/s\d+(-c)?\//, '/s400/');
 
-    // Derive a slug from the title for routing
     var slug = title.replace(/[^a-zA-Z0-9\u0400-\u04FF\u1800-\u18AF]+/g, '-')
       .replace(/^-|-$/g, '').toLowerCase();
 
-    return { id: id, title: title, published: published, labels: labels,
-      url: url, thumbnail: thumbnail, video: video, links: links, slug: slug };
+    return { id: id, title: title, published: published, updated: updated,
+      labels: labels, thumbnail: thumbnail, video: video, links: links, slug: slug };
   }
 
-  // ─── Group posts by title (deduplicate for index) ─────────────
-  // Returns array of { title, slug, thumbnail, labels, published, episodes }
-  // where episodes is array of individual posts sorted by episode number
+  // ─── Format date ──────────────────────────────────────────────
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr);
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+  }
+
+  // ─── Group posts by title ─────────────────────────────────────
+  function getBaseName(title) {
+    return title
+      .replace(/\s*[-–]\s*\d+[-\u0440].*$/i, '')
+      .replace(/\s+\d+[-\u0440].*$/i, '')
+      .replace(/\s+\d+[-–]\s*\u0440.*$/i, '')
+      .replace(/\s*ep(?:isode)?\s*\d+.*$/i, '')
+      .replace(/\s*\d+[-–]\s*\u0440\s+\u0430\u043D\u0433\u0438.*$/i, '')
+      .trim() || title;
+  }
+
   function groupByTitle(posts) {
     var map = {};
     posts.forEach(function (p) {
-      // Extract base series name: strip episode numbers
-      // Handles: "DanMachi S2 - 9-р анги", "Арифүрэта 7-р анги",
-      //          "Фэйри Тэйл 3-р улирлын 38-р анги", "Title Ep 5", "Title - 10"
-      var base = p.title
-        .replace(/\s*[-–]\s*\d+[-\u0440].*$/i, '')           // "Title - 9-р анги"
-        .replace(/\s+\d+[-\u0440].*$/i, '')                   // "Title 7-р анги"
-        .replace(/\s+\d+[-–]\s*\u0440.*$/i, '')               // "Title 7-р ..."
-        .replace(/\s*ep(?:isode)?\s*\d+.*$/i, '')             // "Title Ep 5"
-        .replace(/\s*\d+[-–]\s*\u0440\s+\u0430\u043D\u0433\u0438.*$/i, '') // standalone "N-р анги"
-        .trim();
-      if (!base) base = p.title;
+      var base = getBaseName(p.title);
       var key = base.toLowerCase();
       if (!map[key]) {
         map[key] = {
@@ -130,21 +135,20 @@
           thumbnail: p.thumbnail,
           labels: p.labels.slice(),
           published: p.published,
+          updated: p.updated,
           episodes: []
         };
       }
       map[key].episodes.push(p);
-      // Merge labels
       p.labels.forEach(function (l) {
         if (map[key].labels.indexOf(l) === -1) map[key].labels.push(l);
       });
-      // Use latest thumbnail
-      if (p.published > map[key].published) {
+      if (p.published > map[key].published || p.updated > map[key].updated) {
         map[key].published = p.published;
+        map[key].updated = p.updated;
         if (p.thumbnail) map[key].thumbnail = p.thumbnail;
       }
     });
-    // Sort episodes within each group
     Object.keys(map).forEach(function (key) {
       map[key].episodes.sort(function (a, b) {
         var na = parseInt((a.title.match(/(\d+)/) || [])[1]) || 0;
@@ -155,63 +159,45 @@
     return Object.keys(map).map(function (k) { return map[k]; });
   }
 
-  // ─── Fuzzy search helper ──────────────────────────────────────
-  function fuzzyMatch(text, query) {
+  // ─── Prefix search (starts-with matching) ─────────────────────
+  function prefixMatch(text, query) {
+    if (!query) return false;
     text = text.toLowerCase();
     query = query.toLowerCase().trim();
-    if (!query) return false;
-    // Direct substring
-    if (text.indexOf(query) !== -1) return true;
-    // Split query into words, all must match somewhere
-    var words = query.split(/\s+/);
-    return words.every(function (w) { return text.indexOf(w) !== -1; });
+    // Check if any word in text starts with query or any query word
+    var qWords = query.split(/\s+/);
+    var tWords = text.split(/\s+/);
+    return qWords.every(function (qw) {
+      return tWords.some(function (tw) { return tw.indexOf(qw) === 0; }) ||
+        text.indexOf(qw) !== -1;
+    });
   }
 
-  // ─── Draggable slider hook ────────────────────────────────────
+  // ─── Draggable slider ─────────────────────────────────────────
   function useDrag(ref) {
     var state = useRef({ isDown: false, startX: 0, scrollLeft: 0, moved: false });
-
     var onMouseDown = useCallback(function (e) {
       var el = ref.current; if (!el) return;
-      state.current.isDown = true;
-      state.current.moved = false;
-      state.current.startX = e.pageX - el.offsetLeft;
-      state.current.scrollLeft = el.scrollLeft;
-      el.style.cursor = 'grabbing';
-      el.style.userSelect = 'none';
+      state.current = { isDown: true, moved: false, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+      el.style.cursor = 'grabbing'; el.style.userSelect = 'none';
     }, []);
-
-    var onMouseLeave = useCallback(function () {
+    var onEnd = useCallback(function () {
       state.current.isDown = false;
       if (ref.current) { ref.current.style.cursor = 'grab'; ref.current.style.userSelect = ''; }
     }, []);
-
-    var onMouseUp = useCallback(function () {
-      state.current.isDown = false;
-      if (ref.current) { ref.current.style.cursor = 'grab'; ref.current.style.userSelect = ''; }
-    }, []);
-
     var onMouseMove = useCallback(function (e) {
       if (!state.current.isDown) return;
       e.preventDefault();
       var el = ref.current; if (!el) return;
-      var x = e.pageX - el.offsetLeft;
-      var walk = (x - state.current.startX) * 1.5;
+      var walk = (e.pageX - el.offsetLeft - state.current.startX) * 1.5;
       if (Math.abs(walk) > 5) state.current.moved = true;
       el.scrollLeft = state.current.scrollLeft - walk;
     }, []);
-
-    // Returns true if the user dragged (to prevent click)
-    var wasDragged = useCallback(function () {
-      return state.current.moved;
-    }, []);
-
-    return { onMouseDown: onMouseDown, onMouseLeave: onMouseLeave,
-      onMouseUp: onMouseUp, onMouseMove: onMouseMove, wasDragged: wasDragged };
+    var wasDragged = useCallback(function () { return state.current.moved; }, []);
+    return { onMouseDown: onMouseDown, onMouseLeave: onEnd, onMouseUp: onEnd, onMouseMove: onMouseMove, wasDragged: wasDragged };
   }
 
   // ─── Components ───────────────────────────────────────────────
-
   function LazyImg(props) {
     var s = useState(false), loaded = s[0], setLoaded = s[1];
     var s2 = useState(false), inView = s2[0], setInView = s2[1];
@@ -231,7 +217,8 @@
   }
 
   function Card(props) {
-    var item = props.item, badge = props.badge, onClick = props.onClick;
+    var item = props.item, badge = props.badge, onClick = props.onClick, subtitle = props.subtitle;
+    var dateStr = formatDate(item.updated || item.published);
     return html`<article class="card" onClick=${function () { onClick(item); }}
       role="button" tabindex="0"
       onKeyDown=${function (e) { if (e.key === 'Enter') onClick(item); }}
@@ -240,7 +227,8 @@
       ${badge && html`<span class="card-badge">${badge}</span>`}
       <div class="card-info">
         <div class="card-title">${item.title}</div>
-        <div class="card-meta">${new Date(item.published).getFullYear()}</div>
+        ${subtitle && html`<div class="card-subtitle">${subtitle}</div>`}
+        <div class="card-meta">${dateStr}</div>
       </div>
     </article>`;
   }
@@ -280,6 +268,9 @@
 
     if (!loading && items.length === 0) return null;
 
+    // For Ongoing, show latest episode subtitle
+    var isOngoing = config.label === 'Ongoing';
+
     return html`<section class="section" aria-label=${config.title}>
       <div class="section-header">
         <h2 class="section-title">${config.title}</h2>
@@ -298,36 +289,43 @@
         ${loading
           ? html`<${SkeletonCards} count=${8}/>`
           : items.map(function (item) {
-              return html`<${Card} key=${item.slug} item=${item} badge=${config.badge} onClick=${handleClick}/>`;
+              var sub = isOngoing && item.episodes.length > 0
+                ? 'Ep ' + ((item.episodes[item.episodes.length-1].title.match(/(\d+)/) || [])[1] || item.episodes.length)
+                : null;
+              return html`<${Card} key=${item.slug} item=${item} badge=${config.badge} onClick=${handleClick} subtitle=${sub}/>`;
             })
         }
       </div>
     </section>`;
   }
 
-  // ─── Detail Page (full page, not modal) ───────────────────────
+  // ─── Detail Page ──────────────────────────────────────────────
   function DetailPage(props) {
     var slug = props.slug;
     var s = useState(null), item = s[0], setItem = s[1];
     var s2 = useState(true), loading = s2[0], setLoading = s2[1];
+    var s3 = useState(null), activeEp = s3[0], setActiveEp = s3[1];
 
     useEffect(function () {
       setLoading(true);
-      // Search all sections for the matching slug
-      var promises = CONFIG.sections.map(function (sec) { return fetchByLabel(sec.label); });
-      Promise.all(promises).then(function (results) {
-        var allPosts = [];
-        results.forEach(function (posts) { allPosts = allPosts.concat(posts); });
-        var grouped = groupByTitle(allPosts);
+      setActiveEp(null);
+      fetchAllPosts().then(function (all) {
+        var grouped = groupByTitle(all);
         var found = grouped.find(function (g) { return g.slug === slug; });
         setItem(found || null);
+        // Auto-select latest episode
+        if (found && found.episodes.length > 0) {
+          setActiveEp(found.episodes[found.episodes.length - 1]);
+        }
         setLoading(false);
       });
     }, [slug]);
 
-    useEffect(function () {
-      window.scrollTo(0, 0);
-    }, [slug]);
+    useEffect(function () { window.scrollTo(0, 0); }, [slug]);
+
+    var selectEp = useCallback(function (ep) {
+      setActiveEp(ep);
+    }, []);
 
     if (loading) return html`<div class="detail-page">
       <div class="detail-loading"><div class="skeleton" style="width:100%;height:350px;border-radius:14px"></div></div>
@@ -335,15 +333,13 @@
 
     if (!item) return html`<div class="detail-page">
       <div class="detail-not-found">
-        <h2>Not found</h2>
-        <p>This title could not be found.</p>
+        <h2>Not found</h2><p>This title could not be found.</p>
         <a href="#/" class="detail-blog-link">← Back to home</a>
       </div>
     </div>`;
 
     var heroImg = item.thumbnail ? item.thumbnail.replace(/\/s\d+(-c)?\//, '/s800/') : '';
     var sectionLabels = CONFIG.sectionLabels;
-    var latestEp = item.episodes[item.episodes.length - 1];
 
     return html`<div class="detail-page">
       <a href="#/" class="detail-back">← Back</a>
@@ -364,13 +360,22 @@
         </div>
       </div>
 
-      ${latestEp && latestEp.video && html`
-        <div class="detail-player">
-          <h3>Latest Episode</h3>
+      ${activeEp && activeEp.video && html`
+        <div class="detail-player" id="player">
+          <h3>Now Playing: ${activeEp.title}</h3>
           <div class="video">
-            <iframe src=${latestEp.video} allowfullscreen="" allow="autoplay; encrypted-media"
-              referrerpolicy="no-referrer" title=${latestEp.title}></iframe>
+            <iframe src=${activeEp.video} key=${activeEp.id} allowfullscreen="" allow="autoplay; encrypted-media"
+              referrerpolicy="no-referrer" title=${activeEp.title}></iframe>
           </div>
+          ${activeEp.links.length > 0 && html`
+            <div class="player-downloads">
+              ${activeEp.links.map(function (lnk) {
+                return html`<a class="dl-btn" href=${lnk.url} target="_blank" rel="noopener noreferrer">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  ${lnk.name}</a>`;
+              })}
+            </div>
+          `}
         </div>
       `}
 
@@ -380,16 +385,18 @@
           <div class="ep-grid">
             ${item.episodes.map(function (ep, i) {
               var num = (ep.title.match(/(\d+)/) || [])[1] || (i + 1);
-              return html`<div class="ep-card" key=${ep.id}>
+              var isActive = activeEp && activeEp.id === ep.id;
+              return html`<div class=${'ep-card' + (isActive ? ' active' : '')} key=${ep.id}
+                onClick=${function () { selectEp(ep); }}>
                 <div class="ep-num">${num}</div>
                 <div class="ep-title">${ep.title}</div>
+                <div class="ep-meta">${formatDate(ep.updated || ep.published)}</div>
                 <div class="ep-actions">
-                  ${ep.video && html`<a class="ep-btn play" href=${ep.video} target="_blank" rel="noopener" title="Watch">▶</a>`}
                   ${ep.links.map(function (lnk) {
-                    return html`<a class="ep-btn dl" href=${lnk.url} target="_blank" rel="noopener noreferrer" title=${lnk.name}>
+                    return html`<a class="ep-btn dl" href=${lnk.url} target="_blank" rel="noopener noreferrer"
+                      onClick=${function(e){e.stopPropagation();}} title=${lnk.name}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      ${lnk.name}
-                    </a>`;
+                      ${lnk.name}</a>`;
                   })}
                 </div>
               </div>`;
@@ -400,41 +407,38 @@
     </div>`;
   }
 
-  // ─── Search Page ──────────────────────────────────────────────
+  // ─── Search Page (prefix matching, instant results) ───────────
   function SearchPage(props) {
     var initialQuery = props.query || '';
     var s = useState(initialQuery), query = s[0], setQuery = s[1];
     var s2 = useState([]), results = s2[0], setResults = s2[1];
-    var s3 = useState(false), searching = s3[0], setSearching = s3[1];
-    var s4 = useState(false), searched = s4[0], setSearched = s4[1];
-    var timer = useRef();
+    var s3 = useState(false), loading = s3[0], setLoading = s3[1];
+    var allGrouped = useRef([]);
 
-    var doSearch = useCallback(function (q) {
-      setQuery(q);
-      clearTimeout(timer.current);
-      if (!q.trim()) { setResults([]); setSearching(false); setSearched(false); return; }
-      setSearching(true);
-      timer.current = setTimeout(function () {
-        searchPosts(q).then(function (posts) {
-          // Group and then fuzzy filter
-          var grouped = groupByTitle(posts);
-          var filtered = grouped.filter(function (g) {
-            return fuzzyMatch(g.title, q) ||
-              g.labels.some(function (l) { return fuzzyMatch(l, q); });
-          });
-          // If Blogger returned results but our fuzzy filter is too strict, show all
-          if (filtered.length === 0 && grouped.length > 0) filtered = grouped;
-          setResults(filtered);
-          setSearching(false);
-          setSearched(true);
-        });
-      }, 300);
+    // Load all posts once for instant local filtering
+    useEffect(function () {
+      setLoading(true);
+      fetchAllPosts().then(function (all) {
+        allGrouped.current = groupByTitle(all);
+        if (initialQuery) filterResults(initialQuery);
+        setLoading(false);
+      });
     }, []);
 
-    // Trigger search on mount if query provided
-    useEffect(function () {
-      if (initialQuery) doSearch(initialQuery);
-    }, [initialQuery]);
+    var filterResults = useCallback(function (q) {
+      if (!q.trim()) { setResults([]); return; }
+      var filtered = allGrouped.current.filter(function (g) {
+        return prefixMatch(g.title, q) ||
+          g.labels.some(function (l) { return prefixMatch(l, q); });
+      });
+      setResults(filtered);
+    }, []);
+
+    var handleInput = useCallback(function (e) {
+      var q = e.target.value;
+      setQuery(q);
+      filterResults(q);
+    }, []);
 
     var handleClick = useCallback(function (item) {
       navigate('/title/' + encodeURIComponent(item.slug));
@@ -444,10 +448,10 @@
       <div class="search-bar-large">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="search" placeholder="Search anime titles, labels..." value=${query}
-          onInput=${function (e) { doSearch(e.target.value); }} aria-label="Search anime" autofocus/>
+          onInput=${handleInput} aria-label="Search anime" autofocus/>
       </div>
       <div class="search-results">
-        ${searching
+        ${loading
           ? html`<div class="slider-track" style="flex-wrap:wrap;padding:0 4%"><${SkeletonCards} count=${6}/></div>`
           : results.length
             ? html`<div class="slider-track" style="flex-wrap:wrap;padding:0 4%">
@@ -455,9 +459,9 @@
                   return html`<${Card} key=${item.slug} item=${item} onClick=${handleClick}/>`;
                 })}
               </div>`
-            : searched
-              ? html`<p style="padding:20px 4%;color:#888">No results found for "${query}"</p>`
-              : null
+            : query.trim()
+              ? html`<p style="padding:20px 4%;color:#888">No results for "${query}"</p>`
+              : html`<p style="padding:20px 4%;color:#666">Start typing to search...</p>`
         }
       </div>
     </div>`;
@@ -469,8 +473,7 @@
       <h1>About</h1>
       <div class="static-content">
         <p>AnimeFlix is a lightweight anime streaming and download index powered by Google Blogger.</p>
-        <p>All content is fetched directly from the blog's RSS feed and rendered client-side using Preact.</p>
-        <p>No server required — just Blogger + a few kilobytes of JavaScript.</p>
+        <p>All content is fetched directly from the blog's RSS feed and rendered client-side.</p>
       </div>
     </div>`;
   }
@@ -478,33 +481,27 @@
   function TimetablePage() {
     var s = useState([]), all = s[0], setAll = s[1];
     var s2 = useState(true), loading = s2[0], setLoading = s2[1];
-
     useEffect(function () {
       fetchByLabel('Ongoing').then(function (posts) {
         var grouped = groupByTitle(posts);
-        // Sort by latest episode date
-        grouped.sort(function (a, b) {
-          return b.published > a.published ? 1 : -1;
-        });
+        grouped.sort(function (a, b) { return b.updated > a.updated ? 1 : -1; });
         setAll(grouped);
         setLoading(false);
       });
     }, []);
-
     return html`<div class="static-page">
       <h1>Timetable</h1>
-      <p class="static-subtitle">Currently airing series, sorted by latest update</p>
+      <p class="static-subtitle">Currently airing, sorted by latest update</p>
       ${loading
         ? html`<div class="slider-track" style="flex-wrap:wrap;padding:0"><${SkeletonCards} count=${6}/></div>`
         : html`<div class="timetable-grid">
             ${all.map(function (item) {
               var latest = item.episodes[item.episodes.length - 1];
-              var date = latest ? new Date(latest.published).toLocaleDateString() : '';
               return html`<a class="timetable-row" href=${'#/title/' + encodeURIComponent(item.slug)} key=${item.slug}>
                 <img class="timetable-thumb" src=${item.thumbnail} alt=${item.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${item.title}</div>
-                  <div class="timetable-meta">${item.episodes.length} ep · Updated ${date}</div>
+                  <div class="timetable-meta">${item.episodes.length} ep · ${formatDate(latest ? latest.updated || latest.published : '')}</div>
                 </div>
               </a>`;
             })}
@@ -516,43 +513,28 @@
   function ReleasesPage() {
     var s = useState([]), posts = s[0], setPosts = s[1];
     var s2 = useState(true), loading = s2[0], setLoading = s2[1];
-
     useEffect(function () {
-      // Fetch all sections and merge, sort by date
-      var promises = CONFIG.sections.map(function (sec) { return fetchByLabel(sec.label); });
-      Promise.all(promises).then(function (results) {
-        var all = [];
-        results.forEach(function (p) { all = all.concat(p); });
-        // Deduplicate by id
-        var seen = {};
-        all = all.filter(function (p) {
-          if (seen[p.id]) return false;
-          seen[p.id] = true;
-          return true;
-        });
-        all.sort(function (a, b) { return b.published > a.published ? 1 : -1; });
-        setPosts(all.slice(0, 50));
+      fetchAllPosts().then(function (all) {
+        var sorted = all.slice().sort(function (a, b) { return b.published > a.published ? 1 : -1; });
+        setPosts(sorted.slice(0, 50));
         setLoading(false);
       });
     }, []);
-
     return html`<div class="static-page">
       <h1>Latest Releases</h1>
-      <p class="static-subtitle">Most recent episode uploads across all categories</p>
+      <p class="static-subtitle">Most recent uploads across all categories</p>
       ${loading
         ? html`<div class="slider-track" style="flex-wrap:wrap;padding:0"><${SkeletonCards} count=${6}/></div>`
         : html`<div class="timetable-grid">
             ${posts.map(function (p) {
-              var date = new Date(p.published).toLocaleDateString();
-              var slug = p.slug;
-              return html`<a class="timetable-row" href=${p.url} target="_blank" rel="noopener" key=${p.id}>
+              return html`<div class="timetable-row" key=${p.id} style="cursor:default">
                 <img class="timetable-thumb" src=${p.thumbnail} alt=${p.title}/>
                 <div class="timetable-info">
                   <div class="timetable-title">${p.title}</div>
-                  <div class="timetable-meta">${date} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
+                  <div class="timetable-meta">${formatDate(p.updated || p.published)} · ${p.labels.filter(function(l){ return CONFIG.sectionLabels.indexOf(l)!==-1; }).join(', ')}</div>
                 </div>
-                ${p.video && html`<span class="release-play">▶</span>`}
-              </a>`;
+                ${p.video && html`<a class="release-play" href=${p.video} target="_blank" rel="noopener">▶</a>`}
+              </div>`;
             })}
           </div>`
       }
@@ -563,14 +545,12 @@
   function Navbar(props) {
     var route = props.route;
     var s = useState(false), menuOpen = s[0], setMenuOpen = s[1];
-
     var links = [
       { href: '#/', label: 'Home' },
       { href: '#/about', label: 'About' },
       { href: '#/timetable', label: 'Timetable' },
       { href: '#/releases', label: 'Releases' },
     ];
-
     return html`<header class="header">
       <a href="#/" class="logo">Anime<span>Flix</span></a>
       <nav class="nav-links ${menuOpen ? 'open' : ''}">
@@ -590,10 +570,9 @@
     </header>`;
   }
 
-  // ─── App with Router ──────────────────────────────────────────
+  // ─── App ──────────────────────────────────────────────────────
   function App() {
     var route = useRouter();
-
     var handleCardClick = useCallback(function (item) {
       navigate('/title/' + encodeURIComponent(item.slug));
     }, []);
@@ -628,10 +607,8 @@
     </div>`;
   }
 
-  // ─── Mount ────────────────────────────────────────────────────
   render(html`<${App}/>`, document.getElementById('root'));
 
-  // ─── SEO: JSON-LD ─────────────────────────────────────────────
   var ld = { '@context': 'https://schema.org', '@type': 'WebSite', name: 'AnimeFlix',
     url: window.location.origin,
     potentialAction: { '@type': 'SearchAction',
@@ -641,5 +618,4 @@
   sc.type = 'application/ld+json';
   sc.textContent = JSON.stringify(ld);
   document.head.appendChild(sc);
-
 })();

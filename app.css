@@ -63,13 +63,19 @@ img{display:block;max-width:100%;height:auto}
 .detail-loading,.detail-not-found{padding:60px 0;text-align:center}
 .detail-not-found h2{color:#fff;margin-bottom:8px}
 .detail-blog-link{color:#e63946;font-weight:600}
+.player-downloads{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.dl-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:linear-gradient(135deg,#e63946,#a50d0d);color:#fff;border-radius:6px;font-size:12px;font-weight:600;transition:all .2s}
+.dl-btn:hover{color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(230,57,70,.4)}
+.card-subtitle{font-size:11px;color:#e63946;font-weight:600;margin-top:2px}
 
 /* === Episode Grid === */
 .ep-grid{display:flex;flex-direction:column;gap:6px}
-.ep-card{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#1a1a2e;border-radius:8px;transition:background .2s}
+.ep-card{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#1a1a2e;border-radius:8px;transition:background .2s;cursor:pointer}
 .ep-card:hover{background:#222238}
+.ep-card.active{background:#222238;border-left:3px solid #e63946}
 .ep-num{font-size:16px;font-weight:800;color:#e63946;min-width:32px;text-align:center}
 .ep-title{flex:1;font-size:13px;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-meta{font-size:11px;color:#666;white-space:nowrap;margin-right:8px}
 .ep-actions{display:flex;gap:6px;flex-shrink:0}
 .ep-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;transition:all .2s}
 .ep-btn.play{background:#e63946;color:#fff}
