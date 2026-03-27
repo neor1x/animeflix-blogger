@@ -22,13 +22,12 @@
 
   // ─── Firebase Config (optional — leave empty to use localStorage only) ──
   var FIREBASE_CONFIG = {
-    // Paste your Firebase config here to enable Google sign-in and cloud sync:
-    // apiKey: "...",
-    // authDomain: "...",
-    // projectId: "...",
-    // storageBucket: "...",
-    // messagingSenderId: "...",
-    // appId: "..."
+    apiKey: "AIzaSyAHqVMnFAcbA13GrgVpT-nAhBgDLvc9uKc",
+    authDomain: "animeflix-blogger.firebaseapp.com",
+    projectId: "animeflix-blogger",
+    storageBucket: "animeflix-blogger.firebasestorage.app",
+    messagingSenderId: "307752501362",
+    appId: "1:307752501362:web:448e299d92188ca75142eb"
   };
 
   // Auto-init Firebase if config is provided
